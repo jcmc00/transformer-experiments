@@ -20,6 +20,27 @@ class LayerNorm(nn.Module):
         x = x - m / (v + self.epsilon).sqrt()
         return x*self.mults + self.adds
 
+class Encoder(nn.Module):
+    def __init__(self, layer, n):
+        super().__init__()
+        self.layers = clones(layer, n)
+        self.norm = LayerNorm(layer.size)
+        
+    def forward(self, x, mask):
+        for layer in self.layers:
+            x = layer(x, mask)
+        return self.norm(x)
+
+class SublayerConnection(nn.Module):
+    def __init__(self, features, dropout):
+        super().__init__()
+        self.norm = LayerNorm(features)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x, sublayer):
+        # residual connection
+        return x + self.dropout(sublayer(self.norm(x)))
+
 # Mask future values for 'causality' flag
 def attention(query, key, value, dropout=None):
     # q,k,v are all of size d_k = d_v
@@ -28,7 +49,7 @@ def attention(query, key, value, dropout=None):
 
     # attention weights
     p_attn = F.softmax(scores, dim = -1)
-    if dropout is not None:
+    if dropout.p > 0:
         p_attn = dropout(p_attn)
     return torch.matmul(p_attn, value), p_attn
 
@@ -38,7 +59,7 @@ class MultiHeadedAttention(nn.Module):
         self.d_k = d_model // n_heads
         self.h = n_heads
         self.lin = nn.Linear(d_model, d_model)
-        self.dropout = nn.Dropout(p=dropout)
+        self.dropout = nn.Dropout(p = dropout)
         self.attn = None
 
     def forward(self, query, key, value):
