@@ -4,11 +4,11 @@ import torch.nn.functional as F
 from itertools import zip_longest
 
 class LayerNorm(nn.Module):
-    def __init__(self, features, epsilon = 1e-8):
+    def __init__(self, features, eps = 1e-8):
         super().__init__()
         self.mults = nn.Parameter(torch.ones(features))
         self.adds = nn.Parameter(torch.zeros(features))
-        self.epsilon = epsilon
+        self.eps = eps
     def forward(self, x):
         m = x.mean(-1, keepdim = True)
         v = x.var(-1, keepdim = True)
