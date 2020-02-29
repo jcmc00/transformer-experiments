@@ -15,12 +15,14 @@ class LayerNorm(nn.Module):
         x = x - m / (v + self.epsilon).sqrt()
         return x*self.mults + self.adds
 
-# Mask future values for 'causality' flag
-def attention(query, key, value, dropout=None):
+def attention(query, key, value, mask = None, dropout= None):
     # q,k,v are all of size d_k = d_v
     d_k = query.size(-1)
     scores = torch.matmul(query, key.transpose(-2, -1)) / torch.sqrt(d_k)
 
+    if mask:
+        score = scores.masked_fill(mask == 0, -1e9)
+    
     # attention weights
     p_attn = F.softmax(scores, dim = -1)
     if dropout.p > 0:
@@ -36,7 +38,10 @@ class MultiHeadedAttention(nn.Module):
         self.dropout = nn.Dropout(p = dropout)
         self.attn = None
 
-    def forward(self, query, key, value):
+    def forward(self, query, key, value, mask = None):
+        if mask:
+            mask = mask.unsqueeze(1)
+
         nbatches = query.shape[0]
         # broadcast could train on same weights
         lx = zip_longest([self.lin], (query, key, value), fillvalue = self.lin)  # [(lin,q), (lin,k), (lin, v)] with broadcast
